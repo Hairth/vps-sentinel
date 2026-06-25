@@ -9,11 +9,17 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]
   },
+  "routes": [
+    {
+      "pattern": "vps.55418.xyz",
+      "custom_domain": true
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "vps-sentinel-panel-db",
-      "database_id": "00000000-0000-0000-0000-000000000000"
+      "database_id": "1a304598-fcab-41fb-a860-592351164371"
     }
   ],
   "vars": {
