@@ -1460,9 +1460,10 @@ function redirectPublicAdminPage(request, env) {
 }
 
 function normalizePanelPath(value) {
-  const raw = String(value || "").trim() || DEFAULT_ADMIN_PATH;
+  const raw = String(value || "").trim();
+  if (!raw) return DEFAULT_ADMIN_PATH;
   const withSlash = raw.startsWith("/") ? raw : `/${raw}`;
-  return withSlash.replace(/\/+$/, "") || DEFAULT_ADMIN_PATH;
+  return withSlash.replace(/\/+$/, "") || "/";
 }
 
 function panelThemes(env) {
