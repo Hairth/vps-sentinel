@@ -96,6 +96,8 @@ export default {
         return withCors(json({ error: "stream_unavailable", detail: "stream_unavailable" }, 501), request, env);
       }
       if (request.method === "GET" && env.ASSETS) {
+        const publicPageRedirect = redirectPublicAdminPage(request, env);
+        if (publicPageRedirect) return publicPageRedirect;
         return env.ASSETS.fetch(request);
       }
       return withCors(json({ error: "not_found" }, 404), request, env);
@@ -1446,6 +1448,15 @@ function requestPathMatchesAdmin(resolvedAdminPath, candidate) {
   const path = raw.split(/[?#]/, 1)[0].trim();
   if (!path) return false;
   return normalizePanelPath(path) === normalizePanelPath(resolvedAdminPath);
+}
+
+function redirectPublicAdminPage(request, env) {
+  const url = new URL(request.url);
+  if (normalizePanelPath(url.pathname) !== normalizePanelPath(adminPath(env))) return null;
+  const page = String(url.searchParams.get("page") || "").trim().toLowerCase();
+  if (!page || !publicPages(env).includes(page)) return null;
+  url.pathname = "/";
+  return Response.redirect(url.toString(), 302);
 }
 
 function normalizePanelPath(value) {
