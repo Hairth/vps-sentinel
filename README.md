@@ -19,6 +19,14 @@ During setup, fill these required secrets:
 - `PANEL_SHARED_SECRET`: random HMAC ingest secret shared with every VPS agent.
 - `PANEL_TOKEN`: random browser token for private management pages.
 
+By default, visitors can open the base Worker URL without logging in and view:
+
+- Overview
+- Public blacklist
+- Nodes
+
+Private pages and write actions still require `PANEL_TOKEN` at the management path.
+
 Keep the default deploy command:
 
 ```bash
@@ -53,3 +61,9 @@ https://<your-worker>.<your-subdomain>.workers.dev/panel-admin
 ```
 
 Use `PANEL_TOKEN` when the UI asks for the token.
+
+Open the public panel without logging in at:
+
+```text
+https://<your-worker>.<your-subdomain>.workers.dev/
+```

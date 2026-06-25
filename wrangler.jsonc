@@ -18,7 +18,7 @@
   ],
   "vars": {
     "PANEL_MAX_BODY_BYTES": "1048576",
-    "PANEL_PUBLIC_ENABLED": "false",
+    "PANEL_PUBLIC_ENABLED": "true",
     "PANEL_PUBLIC_PAGES": "overview,probe_sources,nodes",
     "PANEL_ADMIN_PATH": "/panel-admin",
     "PANEL_THEME": "default",

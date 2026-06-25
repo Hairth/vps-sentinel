@@ -1428,7 +1428,8 @@ function publicEnabled(env) {
 }
 
 function publicPages(env) {
-  const value = String(env.PANEL_PUBLIC_PAGES === undefined ? DEFAULT_PUBLIC_PAGES : env.PANEL_PUBLIC_PAGES);
+  const configured = String(env.PANEL_PUBLIC_PAGES === undefined ? "" : env.PANEL_PUBLIC_PAGES).trim();
+  const value = configured || DEFAULT_PUBLIC_PAGES;
   return [...new Set(value.split(",").map((page) => page.trim().toLowerCase()).filter(Boolean))];
 }
 
