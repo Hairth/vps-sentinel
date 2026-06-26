@@ -57,7 +57,7 @@ sudo vs reload
 Open the private panel at:
 
 ```text
-https://<your-worker>.<your-subdomain>.workers.dev/panel-admin
+https://<your-worker>.<your-subdomain>.workers.dev/admin
 ```
 
 Use `PANEL_TOKEN` when the UI asks for the token.

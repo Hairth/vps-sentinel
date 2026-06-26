@@ -11,7 +11,7 @@ export const DEFAULT_NODE_RETIRED_THRESHOLD_MINUTES = 720;
 export const ROLE_LEVELS = Object.freeze({ public: 0, private: 1 });
 export const PANEL_TRANSPORT_ENCODING = "json-base64";
 export const DEFAULT_PUBLIC_PAGES = "overview,probe_sources,nodes";
-export const DEFAULT_ADMIN_PATH = "/panel-admin";
+export const DEFAULT_ADMIN_PATH = "/admin";
 export const DEFAULT_THEMES = "default:Default";
 export const PUBLIC_PROBE_SOURCE_HIDDEN_KEYS = Object.freeze([
   "node_name",

@@ -7,7 +7,7 @@
     "directory": "./web",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/panel-admin", "/panel-admin/*"]
+    "run_worker_first": ["/api/*", "/admin", "/admin/*", "/panel-admin", "/panel-admin/*"]
   },
   "routes": [
     {
@@ -26,7 +26,7 @@
     "PANEL_MAX_BODY_BYTES": "1048576",
     "PANEL_PUBLIC_ENABLED": "true",
     "PANEL_PUBLIC_PAGES": "overview,probe_sources,nodes",
-    "PANEL_ADMIN_PATH": "/panel-admin",
+    "PANEL_ADMIN_PATH": "/admin",
     "PANEL_THEME": "default",
     "PANEL_THEMES": "default:Default"
   },
