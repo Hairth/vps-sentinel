@@ -19,6 +19,9 @@ const JSON_HEADERS = {
   "cache-control": "no-store",
 };
 
+const HEARTBEAT_WRITE_INTERVAL_SECONDS = 20 * 60;
+const PANEL_STATE_WRITE_INTERVAL_SECONDS = 60 * 60;
+
 let compatSchemaPromise = null;
 
 export default {
@@ -309,9 +312,7 @@ async function persistPayload(env, payload, signedNodeName) {
   const statements = [];
   const nodeStatement = panelNodeStatement(env, nodeName, node, payload.sent_at, receivedAt, true);
   statements.push(nodeStatement);
-  statements.push(env.DB.prepare("INSERT OR REPLACE INTO heartbeats (message_id, node_id, sent_at, received_at, scan_json) VALUES (?, ?, ?, ?, ?)")
-    .bind(payload.message_id, nodeName, payload.sent_at, receivedAt, JSON.stringify(redactPanelValue(payload.scan || {})))
-  );
+  statements.push(heartbeatStatement(env, payload, nodeName, receivedAt));
 
   for (const finding of payload.findings || []) {
     const evidence = redactPanelValue(finding.evidence || []);
@@ -394,25 +395,7 @@ async function persistPayload(env, payload, signedNodeName) {
   }
 
   for (const block of payload.active_blocks || []) {
-    const id = panelBlockStorageId(nodeName, block);
-    statements.push(env.DB.prepare(`
-      INSERT OR REPLACE INTO active_blocks
-        (id, node_id, ip, rule_id, finding_id, reason, backend, blocked_at, expires_at, expired, firewall_present, received_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      id,
-      nodeName,
-      String(block.ip || "").trim() || redactedIp(),
-      block.rule_id,
-      block.finding_id,
-      redactIpText(block.reason || ""),
-      block.backend,
-      block.blocked_at,
-      block.expires_at || null,
-      block.expired ? 1 : 0,
-      block.firewall_present === null || block.firewall_present === undefined ? null : (block.firewall_present ? 1 : 0),
-      receivedAt,
-    ));
+    statements.push(activeBlockStatement(env, nodeName, block, receivedAt));
   }
 
   try {
@@ -436,6 +419,28 @@ async function persistPayload(env, payload, signedNodeName) {
       throw error;
     }
   }
+}
+
+function heartbeatStatement(env, payload, nodeName, receivedAt) {
+  return env.DB.prepare(`
+    INSERT INTO heartbeats (message_id, node_id, sent_at, received_at, scan_json)
+    SELECT ?, ?, ?, ?, ?
+    WHERE NOT EXISTS (
+      SELECT 1 FROM heartbeats
+      WHERE node_id = ?
+        AND COALESCE(unixepoch(received_at), 0) >= unixepoch(?) - ?
+      LIMIT 1
+    )
+  `).bind(
+    payload.message_id,
+    nodeName,
+    payload.sent_at,
+    receivedAt,
+    JSON.stringify(redactPanelValue(payload.scan || {})),
+    nodeName,
+    receivedAt,
+    HEARTBEAT_WRITE_INTERVAL_SECONDS,
+  );
 }
 
 function panelNodeStatement(env, nodeName, node, sentAt, receivedAt, includeMetrics) {
@@ -497,6 +502,47 @@ function panelNodeStatement(env, nodeName, node, sentAt, receivedAt, includeMetr
   );
 }
 
+function activeBlockStatement(env, nodeName, block, receivedAt) {
+  const id = panelBlockStorageId(nodeName, block);
+  return env.DB.prepare(`
+    INSERT INTO active_blocks
+      (id, node_id, ip, rule_id, finding_id, reason, backend, blocked_at, expires_at, expired, firewall_present, received_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      node_id = excluded.node_id,
+      ip = excluded.ip,
+      rule_id = excluded.rule_id,
+      finding_id = excluded.finding_id,
+      reason = excluded.reason,
+      backend = excluded.backend,
+      blocked_at = excluded.blocked_at,
+      expires_at = excluded.expires_at,
+      expired = excluded.expired,
+      firewall_present = excluded.firewall_present,
+      received_at = excluded.received_at
+    WHERE COALESCE(unixepoch(active_blocks.received_at), 0) < unixepoch(excluded.received_at) - ?
+      OR active_blocks.expired IS NOT excluded.expired
+      OR active_blocks.firewall_present IS NOT excluded.firewall_present
+      OR COALESCE(active_blocks.expires_at, '') <> COALESCE(excluded.expires_at, '')
+      OR COALESCE(active_blocks.reason, '') <> COALESCE(excluded.reason, '')
+      OR COALESCE(active_blocks.backend, '') <> COALESCE(excluded.backend, '')
+  `).bind(
+    id,
+    nodeName,
+    String(block.ip || "").trim() || redactedIp(),
+    block.rule_id,
+    block.finding_id,
+    redactIpText(block.reason || ""),
+    block.backend,
+    block.blocked_at,
+    block.expires_at || null,
+    block.expired ? 1 : 0,
+    block.firewall_present === null || block.firewall_present === undefined ? null : (block.firewall_present ? 1 : 0),
+    receivedAt,
+    PANEL_STATE_WRITE_INTERVAL_SECONDS,
+  );
+}
+
 function probeSourceStatement(env, nodeName, source, receivedAt) {
   const sourceIp = String(source?.source_ip || "").trim();
   if (!sourceIp) return null;
@@ -552,6 +598,20 @@ function probeSourceStatement(env, nodeName, source, receivedAt) {
       END,
       block_reason = excluded.block_reason,
       updated_at = excluded.updated_at
+    WHERE COALESCE(unixepoch(probe_sources.updated_at), 0) < unixepoch(excluded.updated_at) - ?
+      OR (
+        CASE
+          WHEN LOWER(COALESCE(excluded.block_status, '')) LIKE '%permanent%' THEN 3
+          WHEN LOWER(COALESCE(excluded.block_status, '')) LIKE '%block%' OR LOWER(COALESCE(excluded.block_status, '')) IN ('temporary', 'blocked') THEN 2
+          ELSE 1
+        END
+      ) > (
+        CASE
+          WHEN LOWER(COALESCE(probe_sources.block_status, '')) LIKE '%permanent%' THEN 3
+          WHEN LOWER(COALESCE(probe_sources.block_status, '')) LIKE '%block%' OR LOWER(COALESCE(probe_sources.block_status, '')) IN ('temporary', 'blocked') THEN 2
+          ELSE 1
+        END
+      )
   `).bind(
     id,
     nodeName,
@@ -570,6 +630,7 @@ function probeSourceStatement(env, nodeName, source, receivedAt) {
     String(source.block_status || "observed"),
     redactIpText(source.block_reason || ""),
     receivedAt,
+    PANEL_STATE_WRITE_INTERVAL_SECONDS,
   );
 }
 
