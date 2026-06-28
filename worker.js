@@ -423,24 +423,21 @@ async function persistPayload(env, payload, signedNodeName) {
 
 function heartbeatStatement(env, payload, nodeName, receivedAt) {
   return env.DB.prepare(`
-    INSERT INTO heartbeats (message_id, node_id, sent_at, received_at, scan_json)
-    SELECT ?, ?, ?, ?, ?
-    WHERE NOT EXISTS (
-      SELECT 1 FROM heartbeats
-      WHERE node_id = ?
-        AND COALESCE(unixepoch(received_at), 0) >= unixepoch(?) - ?
-      LIMIT 1
-    )
+    INSERT OR IGNORE INTO heartbeats (message_id, node_id, sent_at, received_at, scan_json)
+    VALUES (?, ?, ?, ?, ?)
   `).bind(
-    payload.message_id,
+    heartbeatBucketMessageId(nodeName, receivedAt),
     nodeName,
     payload.sent_at,
     receivedAt,
     JSON.stringify(redactPanelValue(payload.scan || {})),
-    nodeName,
-    receivedAt,
-    HEARTBEAT_WRITE_INTERVAL_SECONDS,
   );
+}
+
+function heartbeatBucketMessageId(nodeName, receivedAt) {
+  const timestamp = Date.parse(receivedAt);
+  const bucket = Math.floor((Number.isFinite(timestamp) ? timestamp : Date.now()) / (HEARTBEAT_WRITE_INTERVAL_SECONDS * 1000));
+  return `${nodeName}:heartbeat:${bucket}`;
 }
 
 function panelNodeStatement(env, nodeName, node, sentAt, receivedAt, includeMetrics) {
