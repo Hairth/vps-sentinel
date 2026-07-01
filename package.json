@@ -22,7 +22,7 @@
         "description": "Private browser token for the management pages and review APIs. Generate a random value, for example `openssl rand -hex 32`."
       },
       "PANEL_ADMIN_PATH": {
-        "description": "Hidden management entry path. Keep the leading slash. You can change `/panel-admin` to a random path like `/a13f90c2d4b8`."
+        "description": "Hidden management entry path. Keep the leading slash. Default is `/admin`; you can change it to a random path like `/a13f90c2d4b8`."
       }
     }
   }
